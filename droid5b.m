@@ -1,4 +1,7 @@
-function [kymo1,kymo2,ch1k,ch2k] = droid5b(raw_ch1,raw_ch2,mask_dir,resultsdir,outfile_tag,path_param)
+function [kymo1,kymo2,ch1k,ch2k,ch2kymograph,pbd1] = droid5b(raw_ch1,raw_ch2,mask_dir,resultsdir,outfile_tag,path_param)
+global kymo1 kymo2 ch1k ch2k avsig1 avsig2 outfile_tag resultsdir ch2kymograph pbd1
+
+
 % New version of dynamic region of interest determination function that
 % identifies the perimeter of a cell and follows protein dynamics in two
 % channels around a user-defined segment of this perimeter. Input includes 
@@ -46,16 +49,10 @@ fs=5;
 %   be combined with different suffixes to create consistent names for all
 %   the output files. Example outfile_tag format: date_condition_trial#
 % path_param - 1x4 vector holding tracking and analysis parameters
-blur = path_param(1);          % gaussian blurring used to smooth images
-edge_thresh = path_param(2);   % this threshold finds the cell edge
+blur = path_param(1);          % gaussian blurring used to smooth images, start at 5
+edge_thresh = path_param(2);   % this threshold finds the cell edge from bdy issues
 ch1_max = path_param(3);       % absolute max intensity of ch1 for plotting
-% N.B. we no longer specify ch2_max in path_param but instead calculate it
-% based on the relative total intensities of the two channels
-lwid = path_param(4);          % width of ROI at the cell edge
-% lwid used to be hard-coded but is now an input parameter. Together with
-% the marked-up output images, this helps to make sure that you are
-% capturing the part of the leading edge that you want to analyze
-movie_flag = path_param(5);    % flag to generate full marked-up movie
+ch2_max = path_param(4);       % absolute max intensity of ch2 for plotting
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % OUTPUT DATA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -117,8 +114,7 @@ kymo2 = cell(n_fr,4);
 % pb1res and pb2res are parameters that characterize photobleaching
 
 % lwid - is the width of the region of interest at the cell edge
-% lwid was once hard-coded (below) but is now part of the input parameters
-%lwid = 30;
+lwid = 20;
 lrad = floor(lwid/2);
 % bgd1 and bgd2 hold background noise data for all the frames
 % pbd1 and pbd2 hold average background-subtracted intensity data
@@ -138,7 +134,11 @@ for i=1:n_fr
     % blur the image 
     I2 = imgaussfilt(I,blur);
     %Median Filter
-    I3 = medfilt2(I2,[1 1]);   
+    I3 = medfilt2(I2,[1 1]); 
+    I4=max(I2);
+    I4=max(I4);
+    I4=double(I4);
+    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     % bw variables hold sequential, processed versions of the original
     % The first step (bw) sets a threshold
@@ -157,56 +157,58 @@ for i=1:n_fr
     % data are used for both channels.
     cd(raw_ch2)
     ITWO = imread([forename2,name2{i}]);
-    
+    %KS
+    I5 = imgaussfilt(I,blur);
+    I5=max(I5);
+    I5=max(I5);
+    I5=double(I5)
     % compute normal vectors at every point of the perimeter
     % num is the length of the current path
     num = paths{i,1};
     [normals] = findnorm(bw4_perim,paths{i,2},paths{i,1},5,lrad);
     
-    % CODE FOR SAVING MARKED-UP IMAGES SHOWING L.E. ROI's%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if (movie_flag==1)||(i==1)  
-        % while we are at it, go to the 'mask' directory and save marked up
-        % versions of both the channel 1 and 2 data. If the movie_flag is
-        % set this will be performed for all images in the sequence. If not
-        % it will only be performed for the first image.
-        % first, go to the 'mask' directory
-        cd(mask_dir)
-        % channel 1 data first %%%%%%%%%%%
-        figure(3)
-        hold on
-        imshow(I,[]);
-        %plot(paths{i,2}(:,2),paths{i,2}(:,1),'cyan');
-        for l=1:paths{i,1}
-            rectangle('Position',[normals{l,2}(1)-1 normals{l,1}(1) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
-            rectangle('Position',[normals{l,2}(normals{l,3})-1 normals{l,1}(normals{l,3}) 2 2],'Curvature',[1 1],'EdgeColor','yellow');
-        end
-        % next, grab the image from the figure
-        F = getframe(gcf);
-        % save the file with a good filename
-        filename = ['CH1_edge_' name1{i} '.jpg'];
-        imwrite(F.cdata,filename);
-        hold off
-        % channel 2 data next %%%%%%%%%%%%%
-        figure(4)
-        hold on
-        imshow(I2,[]);
-        %plot(paths{i,2}(:,2),paths{i,2}(:,1),'cyan');
-        for l=1:paths{i,1}
-            rectangle('Position',[normals{l,2}(1)-1 normals{l,1}(1) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
-            rectangle('Position',[normals{l,2}(normals{l,3})-1 normals{l,1}(normals{l,3}) 2 2],'Curvature',[1 1],'EdgeColor','yellow');
-        end
-        % next, grab the image from the figure
-        F = getframe(gcf);
-        % save the file with a good filename
-        filename = ['CH2_edge_' name1{i} '.jpg'];
-        imwrite(F.cdata,filename);
-        hold off
-        % go back home
-        cd(maindir)
-    end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     % CODE FOR SAVING MARKED-UP IMAGES SHOWING L.E. ROI's%%%%%%%%%%%%%%%%%
+%     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     % while we are at it, go to the 'mask' directory and save marked up
+%     % versions of both the channel 1 and 2 data 
+%     % first, go to the 'mask' directory
+%     cd(mask_dir)
+%     % channel 1 data first %%%%%%%%%%%
+%     figure(3)
+%     hold on
+%     imshow(I,[]);
+%     %plot(paths{i,2}(:,2),paths{i,2}(:,1),'cyan');
+%     for l=1:paths{i,1}
+%         rectangle('Position',[normals{l,2}(1)-1 normals{l,1}(1) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
+%         rectangle('Position',[normals{l,2}(normals{l,3})-1 normals{l,1}(normals{l,3}) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
+%     end
+%     % next, grab the image from the figure
+%     F = getframe(gcf);
+%     % save the file with a good filename
+%     filename = ['CH1_edge_' name1{i} '.jpg'];
+%     imwrite(F.cdata,filename);
+%     hold off
+%     % channel 2 data next %%%%%%%%%%%%%
+%     figure(4)
+%     hold on
+%     %JJ=imadjust(ITWO);
+%     %imshow(JJ);
+%     imshow(I,[]);
+%     %plot(paths{i,2}(:,2),paths{i,2}(:,1),'cyan');
+%     for l=1:paths{i,1}
+%         rectangle('Position',[normals{l,2}(1)-1 normals{l,1}(1) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
+%         rectangle('Position',[normals{l,2}(normals{l,3})-1 normals{l,1}(normals{l,3}) 2 2],'Curvature',[1 1],'EdgeColor','cyan');
+%     end
+%     % next, grab the image from the figure
+%     F = getframe(gcf);
+%     % save the file with a good filename
+%     filename = ['CH2_edge_' name1{i} '.jpg'];
+%     imwrite(F.cdata,filename);
+%     hold off
+%     % go back home
+%     cd(maindir)
+%     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % load information into the kymograph cell arrays
     % channel 1
@@ -239,7 +241,10 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% plot the background and intensity data
+% plot the background and intensity data 
+% KS bgd1 is  a vector of the backgroundfrom each image, calculated by
+% curvescan, vector whose lenght is a number of frames KS  
+% bkmask is the square for the background 
 % background first %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure;
 hold on
@@ -278,11 +283,19 @@ hold off
 % next plot intensity versus frame number %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure;
 % note the average total signal in each channel and return the value
+%avsig1 is the mean of each image %KS 
 avsig1 = mean(pbd1);
 avsig2 = mean(pbd2);
+   
 % normalize the intensity vs. frame data for plotting with exp fit
-pbd1 = pbd1./max(pbd1);
-pbd2 = pbd2./max(pbd2);
+%KS pbd1/2 are the normalized intensities 
+pbd1 = pbd1 ./max(pbd1);
+pbd2 = pbd2 ./max(pbd2);
+%class(pbd1)
+
+%normalize avsig to the new normalized pbd
+%avsig1 = mean(pbd1);
+%avsig2 = mean(pbd2);
 hold on
 plot(0,0,'dk');
 % plot the data
@@ -303,9 +316,11 @@ hold off
 strch = 5;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd(resultsdir)
-ch1kymograph = kymimage(kymo1,strch,ch1_max);
-%normalize to input max intensity
-ktemp1 = 256*(ch1kymograph./ch1_max);
+%ch1kymograph = kymimage(kymo1,strch,ch1_max);
+ch1kymograph = kymimage(kymo1,strch,I4);
+%normalize to input max intensity KS changed this to ch1_max inputs 
+%ktemp1 = 256*(ch1kymograph./ch1_max);
+ktemp1 = 256*(ch1kymograph./I4);
 % make custom color map
 pmap1=jet(128);
 pmap2=hot(256);
@@ -318,12 +333,11 @@ imwrite(ktemp1,cmap,filename);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% given ch1_max we will first calculate the appropriate (normalized) value
-% for ch2_max, based on avsig1 and avsig2.
-ch2_max=floor((avsig2*ch1_max)/avsig1);
-ch2kymograph = kymimage(kymo2,strch,ch2_max);
+ch2kymograph = kymimage(kymo2,strch,I5);
+%ch2kymograph = kymimage(kymo2,strch,ch2_max);
 %normalize to input max intensity
-ktemp2 = 256*(ch2kymograph./ch2_max);
+%ktemp2 = 256*(ch2kymograph./ch2_max);
+ktemp2 = 256*(ch2kymograph./I5);
 % make custom color map
 pmap1=jet(128);
 pmap2=hot(256);
@@ -337,26 +351,46 @@ imwrite(ktemp2,cmap,filename);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % draw scatter plot of two-channel correlation %%%%%%%%%%%%%%%%%%%%%%%%
+% normalize the kymographs so they have the same mean %%%%%%%%%%%%%%%%%
+%first cast all the kymo values on a scale from 0 to 1
+%exponent1=sprintf('%e' , avsig1)
+%split = strsplit(exponent1,'e'); % Split the string where 'e' is
+%split2 = str2double(split(2)); % Get the 2nd part after 'e'
+%normalize everythign to the max or mean value? not sure yet. KS
+%normch1kymo= max(ch1kymograph, [], 'all');
+%normch2kymo= max(ch2kymograph, [], 'all');
+
+%ch1kymograph= ch1kymograph ./ normch1kymo;
+%ch2kymograph= ch2kymograph ./ normch2kymo;
+
+
+
+%this isnt working 
+%if (avsig2<= avsig1);
+%   rat=(avsig1/avsig2);
+%   pbd2=(pbd2 .* rat);
+%else rat2=avsig2/avsig1
+%   pbd1=(pbd1 .* rat2);
+%end 
+
+% KS Normalization 
 ch1k=ch1kymograph(:);
 ch2k=ch2kymograph(:);
-% normalize based on relative maximum intensities
 ch1k=ch1k/avsig1;
 ch2k=ch2k/avsig2;
-% now, normalize both sets of intensities by the reference (channel 1)
-Xmean = mean(ch1k);
-ch1k=ch1k/Xmean;
-ch2k=ch2k/Xmean;
+xmean=mean(ch1k);
+ch1k=ch1k/xmean;
+ch2k=ch2k/xmean;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% first, calculate the 95% maximum signal of the two channels
+% calculate the 95% maximum signal of the two channels
 SK1 = sort(ch1k);
 SK2 = sort(ch2k);
-% % maximum signal
-% int95_1 = max(ch1k);
-% int95_2 = max(ch2k);
-% 95th percentile signal
-int95_1 = SK1(floor(0.95*length(SK1))); 
-int95_2 = SK2(floor(0.95*length(SK2)));
+% maximum signal
+%int95_1 = max(ch1k);
+%int95_2 = max(ch2k);
+ %95th percentile signal
+ int95_1 = SK1(floor(0.95*length(SK1))); 
+ int95_2 = SK2(floor(0.95*length(SK2)));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % do a linear fit to the scatter plot
 % count the number of data points
@@ -366,7 +400,7 @@ Escat = [ch1k ones(nscat,1)];
 % solve for the slope and intercept
 MBscat = (Escat'*Escat)\Escat'*ch2k;
 Yfit = MBscat(1)*ch1k+MBscat(2);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % calculate R-squared for the fit
 % first compute the means of the data
 Ymean = mean(ch2k);
@@ -380,30 +414,29 @@ Rsq = 1-SSreg/SSavg;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % now plot everything
 figure;
-hold on
-plot(ch1k,ch2k,'or');
+hold on 
+plot(ch1k,ch2k,'ok');
  title('Scatter-plot of data from Channels 1 and 2', 'FontSize', 14);
  xlabel('Channel 1 intensity', 'FontSize', 10);
  ylabel('Channel 2 intensity', 'FontSize', 10);
  grid;
  axis tight;
+%%new code%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 plot(ch1k,Yfit,'color','black','LineWidth',1)
-plot(0:4,0:4,'color','black','LineWidth',2)
+plot(0:int95_1,0:int95_1,'color','black','LineWidth',2)
 % add some info to the figure
 str1 = ['Channel 1 mean: ',num2str(Xmean)];
 str2 = ['Channel 2 mean: ',num2str(Ymean)];
 str3 = ['Slope of regression: ',num2str(MBscat(1))];
 str4 = ['R-squared: ',num2str(Rsq)];
-tallness = floor(0.75*4);
+tallness = floor(0.75*int95_1);
 %tallness = 100;
-hpt1 = text(0.2,tallness+0.75,str1);
-hpt2 = text(0.2,tallness+0.5,str2);
-hpt3 = text(0.2,tallness+0.25,str3);
-hpt4 = text(0.2,tallness,str4);
+hpt1 = text(25,tallness+75,str1);
+hpt2 = text(25,tallness+50,str2);
+hpt3 = text(25,tallness+25,str3);
+hpt4 = text(25,tallness,str4);
 % release the hold and end the figure
-hold off 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+hold off
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % merge both kymographs into one %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ktemp1 = ceil(ktemp1);
@@ -442,7 +475,7 @@ end
 tallness = max(h1(1),h2(1));
 mergekymo = [pimage mergekymo];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% add some info to the figure
+% KS add some info to the figure, here you can add the average intensity KS
 str1 = ['Channel 1 intensity (avg): ',num2str(avsig1)];
 str2 = ['Channel 2 intensity (avg): ',num2str(avsig2)];
 str3 = ['Channel 1 photobleaching rate: ',num2str(pb1res)];
@@ -450,7 +483,6 @@ str4 = ['Channel 2 photobleaching rate: ',num2str(pb2res)];
 % make a new figure with the merged kymograph
 figure;
 imshow(mergekymo);
-rectangle('Position',[20 tallness-120 550 120],'EdgeColor','red','FaceColor','white');
 hpt1 = text(25,tallness-100,str1);
 hpt2 = text(25,tallness-75,str3);
 hpt3 = text(25,tallness-50,str2);
@@ -682,4 +714,5 @@ for i=1:npts
 end
 
 return
+
 end
