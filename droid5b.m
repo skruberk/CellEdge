@@ -1,7 +1,4 @@
-function [kymo1,kymo2,ch1k,ch2k,ch2kymograph,pbd1] = droid5b(raw_ch1,raw_ch2,mask_dir,resultsdir,outfile_tag,path_param)
-global kymo1 kymo2 ch1k ch2k avsig1 avsig2 outfile_tag resultsdir ch2kymograph pbd1
-
-
+function [kymo1,kymo2,ch1k,ch2k] = droid5b(raw_ch1,raw_ch2,mask_dir,resultsdir,outfile_tag,path_param)
 % New version of dynamic region of interest determination function that
 % identifies the perimeter of a cell and follows protein dynamics in two
 % channels around a user-defined segment of this perimeter. Input includes 
@@ -49,8 +46,8 @@ fs=5;
 %   be combined with different suffixes to create consistent names for all
 %   the output files. Example outfile_tag format: date_condition_trial#
 % path_param - 1x4 vector holding tracking and analysis parameters
-blur = path_param(1);          % gaussian blurring used to smooth images, start at 5
-edge_thresh = path_param(2);   % this threshold finds the cell edge from bdy issues
+blur = path_param(1);          % gaussian blurring used to smooth images
+edge_thresh = path_param(2);   % this threshold finds the cell edge
 ch1_max = path_param(3);       % absolute max intensity of ch1 for plotting
 ch2_max = path_param(4);       % absolute max intensity of ch2 for plotting
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -233,10 +230,7 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% plot the background and intensity data 
-% KS bgd1 is  a vector of the backgroundfrom each image, calculated by
-% curvescan, vector whose lenght is a number of frames KS KS 
-% bkmask is the square for the background 
+% plot the background and intensity data
 % background first %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure;
 hold on
@@ -275,19 +269,11 @@ hold off
 % next plot intensity versus frame number %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure;
 % note the average total signal in each channel and return the value
-%avsig1 is the mean of each image %KS KS KS 
 avsig1 = mean(pbd1);
 avsig2 = mean(pbd2);
-   
 % normalize the intensity vs. frame data for plotting with exp fit
-%KS pbd1/2 are the normalized intensities 
-pbd1 = pbd1 ./max(pbd1);
-pbd2 = pbd2 ./max(pbd2);
-%class(pbd1)
-
-%normalize avsig to the new normalized pbd
-%avsig1 = mean(pbd1);
-%avsig2 = mean(pbd2);
+pbd1 = pbd1./max(pbd1);
+pbd2 = pbd2./max(pbd2);
 hold on
 plot(0,0,'dk');
 % plot the data
@@ -309,8 +295,7 @@ strch = 5;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd(resultsdir)
 ch1kymograph = kymimage(kymo1,strch,ch1_max);
-
-%normalize to input max intensity KS changed this to ch1_max inputs 
+%normalize to input max intensity
 ktemp1 = 256*(ch1kymograph./ch1_max);
 % make custom color map
 pmap1=jet(128);
@@ -324,10 +309,9 @@ imwrite(ktemp1,cmap,filename);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ch2kymograph = kymimage(kymo2,strch,ch2_max)
+ch2kymograph = kymimage(kymo2,strch,ch2_max);
 %normalize to input max intensity
 ktemp2 = 256*(ch2kymograph./ch2_max);
-
 % make custom color map
 pmap1=jet(128);
 pmap2=hot(256);
@@ -341,92 +325,26 @@ imwrite(ktemp2,cmap,filename);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % draw scatter plot of two-channel correlation %%%%%%%%%%%%%%%%%%%%%%%%
-% normalize the kymographs so they have the same mean %%%%%%%%%%%%%%%%%
-%first cast all the kymo values on a scale from 0 to 1
-%exponent1=sprintf('%e' , avsig1)
-%split = strsplit(exponent1,'e'); % Split the string where 'e' is
-%split2 = str2double(split(2)); % Get the 2nd part after 'e'
-%normalize everythign to the max or mean value? not sure yet. KS
-%normch1kymo= max(ch1kymograph, [], 'all');
-%normch2kymo= max(ch2kymograph, [], 'all');
-
-%ch1kymograph= ch1kymograph ./ normch1kymo;
-%ch2kymograph= ch2kymograph ./ normch2kymo;
-
-
-
-%this isnt working 
-%if (avsig2<= avsig1);
-%   rat=(avsig1/avsig2);
-%   pbd2=(pbd2 .* rat);
-%else rat2=avsig2/avsig1
-%   pbd1=(pbd1 .* rat2);
-%end 
-
-% KS Normalization 
 ch1k=ch1kymograph(:);
 ch2k=ch2kymograph(:);
-ch1k=ch1k/avsig1;
-ch2k=ch2k/avsig2;
-xmean=mean(ch1k);
-ch1k=ch1k/xmean;
-ch2k=ch2k/xmean;
-
-% calculate the 95% maximum signal of the two channels
+% calculate the maximum signal of the two channels
 SK1 = sort(ch1k);
 SK2 = sort(ch2k);
 % maximum signal
-%int95_1 = max(ch1k);
-%int95_2 = max(ch2k);
- %95th percentile signal
- int95_1 = SK1(floor(0.95*length(SK1))); 
- int95_2 = SK2(floor(0.95*length(SK2)));
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% do a linear fit to the scatter plot
-% count the number of data points
-nscat = length(ch1k);
-% calculate the estimator matrix
-Escat = [ch1k ones(nscat,1)];
-% solve for the slope and intercept
-MBscat = (Escat'*Escat)\Escat'*ch2k;
-Yfit = MBscat(1)*ch1k+MBscat(2);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% calculate R-squared for the fit
-% first compute the means of the data
-Ymean = mean(ch2k);
-Xmean = mean(ch1k);
-% sum the regression errors
-SSreg = (ch2k-Yfit)'*(ch2k-Yfit);
-% sum the total errors
-SSavg = (ch2k-Ymean)'*(ch2k-Ymean);
-% what fraction of the signal can be explained by the regression
-Rsq = 1-SSreg/SSavg;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% now plot everything
+int95_1 = max(ch1k);
+int95_2 = max(ch2k);
+% 95th percentile signal
+% int95_1 = SK1(floor(0.95*length(SK1))); 
+% int95_2 = SK2(floor(0.95*length(SK2)));
 figure;
-hold on 
 plot(ch1k,ch2k,'ok');
  title('Scatter-plot of data from Channels 1 and 2', 'FontSize', 14);
  xlabel('Channel 1 intensity', 'FontSize', 10);
  ylabel('Channel 2 intensity', 'FontSize', 10);
  grid;
  axis tight;
-%%new code%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-plot(ch1k,Yfit,'color','black','LineWidth',1)
-plot(0:int95_1,0:int95_1,'color','black','LineWidth',2)
-% add some info to the figure
-str1 = ['Channel 1 mean: ',num2str(Xmean)];
-str2 = ['Channel 2 mean: ',num2str(Ymean)];
-str3 = ['Slope of regression: ',num2str(MBscat(1))];
-str4 = ['R-squared: ',num2str(Rsq)];
-tallness = floor(0.75*int95_1);
-%tallness = 100;
-hpt1 = text(25,tallness+75,str1);
-hpt2 = text(25,tallness+50,str2);
-hpt3 = text(25,tallness+25,str3);
-hpt4 = text(25,tallness,str4);
-% release the hold and end the figure
-hold off
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % merge both kymographs into one %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ktemp1 = ceil(ktemp1);
@@ -465,9 +383,9 @@ end
 tallness = max(h1(1),h2(1));
 mergekymo = [pimage mergekymo];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% KS add some info to the figure, here you can add the average intensity KS
-str1 = ['Channel 1 intensity (avg): ',num2str(avsig1)];
-str2 = ['Channel 2 intensity (avg): ',num2str(avsig2)];
+% add some info to the figure
+str1 = ['Channel 1 intensity (max): ',num2str(int95_1)];
+str2 = ['Channel 2 intensity (max): ',num2str(int95_2)];
 str3 = ['Channel 1 photobleaching rate: ',num2str(pb1res)];
 str4 = ['Channel 2 photobleaching rate: ',num2str(pb2res)];
 % make a new figure with the merged kymograph
