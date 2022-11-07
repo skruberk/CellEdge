@@ -327,22 +327,62 @@ imwrite(ktemp2,cmap,filename);
 % draw scatter plot of two-channel correlation %%%%%%%%%%%%%%%%%%%%%%%%
 ch1k=ch1kymograph(:);
 ch2k=ch2kymograph(:);
-% calculate the maximum signal of the two channels
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% first, calculate the 95% maximum signal of the two channels
 SK1 = sort(ch1k);
 SK2 = sort(ch2k);
-% maximum signal
-int95_1 = max(ch1k);
-int95_2 = max(ch2k);
+% % maximum signal
+% int95_1 = max(ch1k);
+% int95_2 = max(ch2k);
 % 95th percentile signal
-% int95_1 = SK1(floor(0.95*length(SK1))); 
-% int95_2 = SK2(floor(0.95*length(SK2)));
+int95_1 = SK1(floor(0.95*length(SK1))); 
+int95_2 = SK2(floor(0.95*length(SK2)));
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% do a linear fit to the scatter plot
+% count the number of data points
+nscat = length(ch1k);
+% calculate the estimator matrix
+Escat = [ch1k ones(nscat,1)];
+% solve for the slope and intercept
+MBscat = (Escat'*Escat)\Escat'*ch2k;
+Yfit = MBscat(1)*ch1k+MBscat(2);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% calculate R-squared for the fit
+% first compute the means of the data
+Ymean = mean(ch2k);
+Xmean = mean(ch1k);
+% sum the regression errors
+SSreg = (ch2k-Yfit)'*(ch2k-Yfit);
+% sum the total errors
+SSavg = (ch2k-Ymean)'*(ch2k-Ymean);
+% what fraction of the signal can be explained by the regression
+Rsq = 1-SSreg/SSavg;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% now plot everything
 figure;
-plot(ch1k,ch2k,'ok');
+hold on
+plot(ch1k,ch2k,'or');
  title('Scatter-plot of data from Channels 1 and 2', 'FontSize', 14);
  xlabel('Channel 1 intensity', 'FontSize', 10);
  ylabel('Channel 2 intensity', 'FontSize', 10);
  grid;
  axis tight;
+plot(ch1k,Yfit,'color','black','LineWidth',1)
+plot(0:int95_1,0:int95_1,'color','black','LineWidth',2)
+% add some info to the figure
+str1 = ['Channel 1 mean: ',num2str(Xmean)];
+str2 = ['Channel 2 mean: ',num2str(Ymean)];
+str3 = ['Slope of regression: ',num2str(MBscat(1))];
+str4 = ['R-squared: ',num2str(Rsq)];
+tallness = floor(0.75*int95_1);
+%tallness = 100;
+hpt1 = text(25,tallness+75,str1);
+hpt2 = text(25,tallness+50,str2);
+hpt3 = text(25,tallness+25,str3);
+hpt4 = text(25,tallness,str4);
+% release the hold and end the figure
+hold off 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -384,8 +424,8 @@ tallness = max(h1(1),h2(1));
 mergekymo = [pimage mergekymo];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % add some info to the figure
-str1 = ['Channel 1 intensity (max): ',num2str(int95_1)];
-str2 = ['Channel 2 intensity (max): ',num2str(int95_2)];
+str1 = ['Channel 1 intensity (avg): ',num2str(avsig1)];
+str2 = ['Channel 2 intensity (avg): ',num2str(avsig2)];
 str3 = ['Channel 1 photobleaching rate: ',num2str(pb1res)];
 str4 = ['Channel 2 photobleaching rate: ',num2str(pb2res)];
 % make a new figure with the merged kymograph
